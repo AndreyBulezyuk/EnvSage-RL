@@ -6,11 +6,13 @@ readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
     "accelerate>=1.13.0",
-    "gymnasium>=1.2.3",
+    "gymnasium[atari,box2d,classic-control]>=1.2.3",
     "matplotlib>=3.10.8",
     "numpy>=2.4.2",
     "pandas>=3.0.1",
+    "pygame>=2.6.1",
     "stable-baselines3>=2.7.1",
+    "swig>=4.4.1",
     "tensorboard>=2.20.0",
     "torch>=2.10.0",
     "transformers>=5.3.0",
