@@ -1,5 +1,9 @@
 # EnvSage-RL
 
+
+https://github.com/user-attachments/assets/2a0d6f4e-89cb-4eee-ba52-6fba883d4e56
+
+
 LLM-guided reinforcement learning with environment reasoning.
 
 EnvSage-RL introduces a meta-learning layer where a Large Language Model observes reinforcement learning episodes, analyzes environment dynamics, forms hypotheses, and proposes targeted experiments to improve training.
