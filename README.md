@@ -8,6 +8,8 @@ EnvSage-RL introduces a meta-learning layer where a Large Language Model observe
 
 # Motivation
 
+Author: [Andrey Bulezyuk](https://www.linkedin.com/in/andreybulezyuk/)
+
 Traditional RL agents learn through trial-and-error and often require millions of steps.
 
 EnvSage-RL introduces a reasoning loop:
@@ -54,66 +56,25 @@ RL Agent → Episode Logger → Feature Analyzer → LLM Strategist
  Trainer ← Strategy Adapter ← Experiment Planner
 ```
 
----
-
-# Tech Stack
-
-| Component | Tool |
-|---|---|
-Language | Python 3.12 |
-RL Framework | Stable-Baselines3 |
-Environment | Gymnasium |
-Deep Learning | PyTorch |
-Logging | TensorBoard |
-Experiment Tracking | Weights & Biases |
-Packaging | uv |
-
----
-
-# Repository Structure
-
-```
-envsage-rl/
-
-envs/
-environment wrappers
-
-agent/
-rl training logic
-
-analysis/
-episode statistics + dynamic feature extraction
-
-reflection/
-LLM strategist
-
-experiments/
-baseline comparisons
-
-logs/
-tensorboard outputs
-
-notebooks/
-analysis and visualization
-```
 
 ---
 
 # Training Workflow
 
-1. Run RL episode
-2. Extract trajectory data
-3. Compute statistical features
-4. LLM analyzes environment dynamics
-5. LLM proposes experiment episodes
-6. Trainer executes experiments
-7. Adjust RL parameters
+0. For each Episode
+1. Run 1 - 50 RL episodes
+2. Analyze taken actions, rewards and observations
+2.1. Extract Environment Dynamics and Constants
+2.2. Create hypothesis about the Environment, it's Dynamics and Constant
+2.3. Run 1 or more Experiments for each hypothesis to in/validate it
+2.4. Update the Knowledge about the Environments Dynamics and Constants
+3. Tune Training Algorithm Parameters
 
 ---
 
 # Feature Extraction
 
-Instead of passing raw trajectory data to the LLM, the system computes structured features.
+Instead of passing raw trajectory data to the LLM, the system computes dynamic features/variables (Wind, Acceleration, Number of People in Frame, etc. ) or constants (e.g: Gravity, Duration of XYZ).
 
 Examples:
 
@@ -134,7 +95,7 @@ These features allow the LLM to reason about system dynamics.
 Episode results → LLM reasoning:
 
 Observation:
-state[5] decreases every timestep.
+state[5] decreases by 0.2 every timestep.
 
 Hypothesis:
 environment contains constant downward force.
@@ -146,34 +107,12 @@ Validation:
 state[5] decreases linearly.
 
 Conclusion:
-gravity present.
+obs[5] = gravity with -0.2 at each timestep 
 ```
 
----
-
-# Example Environments
-
-- CartPole
-- LunarLander-v2
-- MiniGrid
-- Doom Gym (future)
-
-The system is designed to generalize across environments.
 
 ---
 
-# HuggingFace Integration
-
-Training logs and experiment results can be uploaded to HuggingFace.
-
-Possible artifacts:
-
-- training metrics
-- reflection logs
-- experiment reports
-- environment dynamics graphs
-
----
 
 # TODO
 

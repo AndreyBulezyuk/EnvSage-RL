@@ -5,10 +5,10 @@ __pycache__/
 *.DSTORE
 *.DS_STORE
 *.DS_Store
-
+runs/
 # C extensions
 *.so
-
+*.sqlite3
 # Distribution / packaging
 .Python
 build/
