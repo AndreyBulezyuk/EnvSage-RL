@@ -1,16 +1,28 @@
 <p align="center">
      <img width="512" height="512" alt="EnvSage-RL Logo - Reinforcement Learning with LLM as Researcher" src="https://github.com/user-attachments/assets/5f57e147-5e1c-413c-8a3d-a7fae70604d3" />
-     <br>
-     Author: [Andrey Bulezyuk](https://www.linkedin.com/in/andreybulezyuk/)
 </p>
+
+Author: [Andrey Bulezyuk](https://www.linkedin.com/in/andreybulezyuk/)
+     
 
 # EnvSage-RL
 
 https://github.com/user-attachments/assets/2a0d6f4e-89cb-4eee-ba52-6fba883d4e56
 
-LLM-guided reinforcement learning with environment reasoning. EnvSage-RL generates a human readable Python Code as Agent Policy.
+Reinforcement learning that reasons between episodes.
 
-EnvSage-RL introduces a meta-learning layer where a Large Language Model observes reinforcement learning episodes, analyzes environment dynamics, forms hypotheses, and proposes targeted experiments to improve training.
+EnvSage-RL is a new take on reinforcement learning: an LLM sits between episodes, studies what happened, forms hypotheses about the environment, and runs targeted experiments to learn faster.
+
+Rather than relying only on brute-force trial and error, EnvSage-RL turns training into a reasoning loop. The model analyzes trajectories, searches for dynamics and constants, tests its own ideas, and feeds those insights back into the learning process. The goal is not just to learn a policy, but to understand the environment well enough to train better.
+
+### Core idea
+
+- Observe episodes
+- Infer possible rules of the environment
+- Design experiments to test them
+- Update training using the new knowledge
+
+EnvSage-RL explores a cutting-edge research direction at the intersection of reinforcement learning, LLM reasoning, and automated experiment design.
 
 ---
 
