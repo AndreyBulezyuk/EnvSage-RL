@@ -1,27 +1,37 @@
-# EnvSage-RL
+<p align="center">
+     <img width="512" height="512" alt="EnvSage-RL Logo - Reinforcement Learning with LLM as Researcher" src="https://github.com/user-attachments/assets/5f57e147-5e1c-413c-8a3d-a7fae70604d3" />
+     <br>
+     Author: [Andrey Bulezyuk](https://www.linkedin.com/in/andreybulezyuk/)
+</p>
 
+# EnvSage-RL
 
 https://github.com/user-attachments/assets/2a0d6f4e-89cb-4eee-ba52-6fba883d4e56
 
-
-LLM-guided reinforcement learning with environment reasoning.
+LLM-guided reinforcement learning with environment reasoning. EnvSage-RL generates a human readable Python Code as Agent Policy.
 
 EnvSage-RL introduces a meta-learning layer where a Large Language Model observes reinforcement learning episodes, analyzes environment dynamics, forms hypotheses, and proposes targeted experiments to improve training.
 
 ---
 
+> [!WARNING]  
+> This is a hobby side-project. Expect bugs.
+> EnvSage-RL needs an OpenAI API Key. Monitor API billing/usage closely if using this Agent.
+
+---
+
 # Motivation
 
-Author: [Andrey Bulezyuk](https://www.linkedin.com/in/andreybulezyuk/)
-
 Traditional RL agents learn through trial-and-error and often require millions of steps.
+Traditional technique only extract a very limited amount of knowledge and insights about the Agent, Dynamics, Constants, Rules and Boundaries of the Environment.
+By Injecting an LLM in between the steps or/and episodes, EnvSage-RL tries to maximize Insights & Rules extraction per step and episode.
 
 EnvSage-RL introduces a reasoning loop:
 
 1. RL agent runs an episode
 2. Episode data is analyzed
 3. LLM forms hypotheses about environment dynamics
-4. LLM proposes controlled experiment episodes
+4. LLM proposes and runs controlled experiment episodes & extracts new observations
 5. Training parameters adapt based on results
 
 Goal: Instead of blindly optimizing rewards, the system attempts to **understand the environment as a dynamic system**.
