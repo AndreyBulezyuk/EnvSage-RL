@@ -6,9 +6,13 @@ readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
     "accelerate>=1.13.0",
+    "deepagents>=0.4.11",
     "django>=6.0.3",
     "fastapi[standard]>=0.135.1",
     "gymnasium[atari,box2d,classic-control]>=1.2.3",
+    "langchain>=1.2.13",
+    "langchain-openai>=1.1.11",
+    "langgraph-checkpoint-sqlite>=3.0.3",
     "matplotlib>=3.10.8",
     "numpy>=2.4.2",
     "openai>=1.0.0",

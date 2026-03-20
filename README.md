@@ -10,6 +10,17 @@ EnvSage-RL introduces a meta-learning layer where a Large Language Model observe
 
 ---
 
+# Quick start
+
+```bash
+git clone https://github.com/AndreyBulezyuk/EnvSage-RL
+cd EnvSage-RL
+cp envsage/.env.example envsage/.env
+uv sync
+uv run python envsage/run_env_llm.py --env-id LunarLander-v3 --episodes 20 --export-every 2 --render
+```
+
+
 # Motivation
 
 Author: [Andrey Bulezyuk](https://www.linkedin.com/in/andreybulezyuk/)

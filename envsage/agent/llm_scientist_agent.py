@@ -15,6 +15,11 @@ from django.conf import settings
 import numpy as np
 import gymnasium as gym
 import openai
+from agent.llm import LLMAgent
+
+from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+
 
 if not settings.configured:
     django.setup()
@@ -23,12 +28,6 @@ from .models import Session, Episode, Experiment, Hypothesis, Interpretation, Co
 
 logger = logging.getLogger("main")
 logger.setLevel(logging.INFO)
-if not logger.handlers:
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    fmt = logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s", "%Y-%m-%d %H:%M:%S")
-    ch.setFormatter(fmt)
-    logger.addHandler(ch)
 
 CanonicalAction = Union[int, float, List[float], List[int]] # matches the flattened action space format for any gym environment
 
@@ -64,11 +63,11 @@ class EnvSageAgent:
         top_k_hypotheses: int = 10,
     ) -> None:
         self.model = model
+        self.llm_agent = LLMAgent(model=model, session_id=session_name)
         self.session_name = session_name
         self.session = Session.objects.get_or_create(name=session_name)[0]
         self.request_timeout_s = request_timeout_s
         self.top_k_hypotheses = top_k_hypotheses
-        # configure OpenAI
         openai.api_key = os.getenv("OPENAI_API_KEY")
         if not openai.api_key:
             raise RuntimeError("OPENAI_API_KEY not found in environment")
