@@ -247,16 +247,12 @@ def main() -> None:
                 logger.info(f"Starting run with config: {json.dumps({'env_schema': env_schema, 'model': args.model, 'seed': args.seed}, indent=2)}")
                 logger.info("Creating default hypothesis and experiments.")
                 
-            
-            # load policy every episode to fetch the newest python file version     
-            exported_policy = None
+            exported_policy = None # load policy every episode to fetch the newest python file version     
             if args.use_exported_policy:
                 exported_policy = load_programmatic_policy(args.use_exported_policy)
                 episode_mode = "programmatic_policy"
                 experiment_plan = None
                 episode_mode_reason = f"using imported policy: {args.use_exported_policy}"
-            else:
-                episode_mode, experiment_plan, episode_mode_reason = agent.decide_episode_mode(flat_obs, episode_idx)
 
             terminated = False
             truncated = False
@@ -264,25 +260,18 @@ def main() -> None:
             last_action_reason = ""
             
             for step_idx in range(args.max_steps):
-                if exported_policy is not None:
-                    action_literal = exported_policy(flat_obs, step_idx)
+                if args.use_exported_policy and exported_policy is not None:
+                    agent_action = exported_policy(flat_obs, step_idx)
                     action_meta = {"reason": "exported policy", "source": "programmatic_policy"}
-                elif episode_mode == "experiment" and experiment_plan is not None:
-                    #update_experiment = Experiment.objects.filter(session=args.session_name, name=experiment_plan.name).update(status='running')
-                    #if update_experiment == 0:
-                    #    logger.error(f"Experiment with name {experiment_plan.name} not found in database {update_experiment} to update to running status.")
-                    action_literal = agent.get_experiment_action(flat_obs, experiment_plan, step_idx)
-                    action_meta = {"reason": experiment_plan.description, "source": "experiment_schedule"}
                 else:
-                    exported_policy = load_programmatic_policy(str(session_dir / "exports" / "exported_programmatic_policy.py"))
-                    action_literal = exported_policy(flat_obs, step_idx)
-                    action_meta = {"reason": "control exported policy", "source": "control programmatic_policy"}
-
-                env_action = decode_action(action_literal, env.action_space)
+                    agent_action = agent.get_action(flat_obs, step_idx, episode_idx)
+                    action_meta = {"reason": "agent training", "source": "agent training"}
+                    
+                env_action = decode_action(agent_action, env.action_space)
                 next_obs, reward, terminated, truncated, info = env.step(env_action)
                 next_obs = np.asarray(next_obs, dtype=float).round(4).tolist() if isinstance(next_obs, (np.ndarray, list, tuple)) else next_obs
                 reward = round(float(reward), 4)
-                logger.debug(f"Episode ({episode_mode}) {episode_idx} Step {step_idx}: action={env_action}, reward={reward}, terminated={terminated}, truncated={truncated}, info={info}")
+                logger.debug(f"Episode {episode_idx} Step {step_idx}: action={env_action}, reward={reward}, terminated={terminated}, truncated={truncated}, info={info}")
 
                 flat_next_obs = flatten_observation(next_obs, env.observation_space)
                 action_json = action_to_jsonable(env_action, env.action_space)
@@ -312,13 +301,13 @@ def main() -> None:
 
             analysis = {"summary": {}, "analysis": {}}
             analysis = agent.post_episode(
+                # mode=episode_mode,
+                # experiment_plan=experiment_plan,
                 episode_index=episode_idx,
-                mode=episode_mode,
                 trajectory=trajectory,
                 return_value=episode_return,
                 terminated=terminated,
                 truncated=truncated,
-                experiment_plan=experiment_plan,
             )
 
             writer.add_scalar("episode/return", episode_return, episode_idx)
@@ -328,9 +317,9 @@ def main() -> None:
             writer.add_scalar("episode/mean_reward", float(np.mean(reward_trace)) if reward_trace else 0.0, episode_idx)
             writer.add_scalar("episode/rolling_return_10", float(np.mean(all_returns[-10:])), episode_idx)
             writer.add_scalar("agent/llm_calls_total", agent.get_llm_call_count(), episode_idx)
-            writer.add_scalar("agent/mode_experiment", int(episode_mode == "experiment"), episode_idx)
-            writer.add_scalar("agent/mode_control", int(episode_mode == "control"), episode_idx)
-            writer.add_scalar("agent/mode_programmatic_policy", int(episode_mode == "programmatic_policy"), episode_idx)
+            #writer.add_scalar("agent/mode_experiment", int(episode_mode == "experiment"), episode_idx)
+            #writer.add_scalar("agent/mode_control", int(episode_mode == "control"), episode_idx)
+            # writer.add_scalar("agent/mode_programmatic_policy", int(episode_mode == "programmatic_policy"), episode_idx)
 
             add_obs_logs(writer, trajectory, episode_idx)
             add_action_logs(writer, trajectory, env.action_space, episode_idx)
@@ -347,26 +336,18 @@ def main() -> None:
                 )
                 writer.add_scalar("memory/num_constants", len(constants), episode_idx)
                 writer.add_scalar("memory/num_interpretations", len(interpretations), episode_idx)
-                writer.add_text("agent/episode_mode_reason", episode_mode_reason[:4000], episode_idx)
+                # writer.add_text("agent/episode_mode_reason", episode_mode_reason[:4000], episode_idx)
                 writer.add_text("agent/last_action_reason", last_action_reason[:4000], episode_idx)
                 writer.add_text("agent/top_hypotheses", json.dumps(top_hypotheses, indent=2)[:12000], episode_idx)
                 writer.add_text("agent/constants", json.dumps(constants, indent=2)[:12000], episode_idx)
                 writer.add_text("agent/interpretations", json.dumps(interpretations, indent=2)[:12000], episode_idx)
-                if experiment_plan is not None:
-                    writer.add_text("agent/experiment_plan", json.dumps({
-                        "name": experiment_plan.name,
-                        "description": experiment_plan.description,
-                        "target_question": experiment_plan.target_question,
-                        "reason": experiment_plan.reason,
-                        "custom_action_python_oneline_method": experiment_plan.custom_action_python_oneline_method,
-                    }, indent=2), episode_idx)
                 writer.add_text("agent/post_episode_analysis", json.dumps(analysis.get("analysis", {}), indent=2)[:12000], episode_idx)
 
             episode_artifact = session_dir / f"episode_{episode_idx:05d}_trajectory.json"
             episode_artifact.write_text(json.dumps({
                 "episode_index": episode_idx,
-                "mode": episode_mode,
-                "reason": episode_mode_reason,
+                #"mode": episode_mode,
+                #"reason": episode_mode_reason,
                 "return": episode_return,
                 "length": len(trajectory),
                 "terminated": terminated,
@@ -376,7 +357,7 @@ def main() -> None:
             }, indent=2))
 
             print(
-                f"episode={episode_idx:04d} mode={episode_mode:<18} return={episode_return:9.3f} "
+                f"episode={episode_idx:04d} return={episode_return:9.3f} "
                 f"len={len(trajectory):4d} llm_calls={agent.get_llm_call_count()}"
             )
 

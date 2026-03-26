@@ -16,9 +16,7 @@ import numpy as np
 import gymnasium as gym
 import openai
 from agent.llm import LLMAgent
-
-from langchain.agents import create_agent
-from langgraph.checkpoint.memory import InMemorySaver
+import importlib.util
 
 
 if not settings.configured:
@@ -101,34 +99,50 @@ class EnvSageAgent:
     def _get_env_schema(self) -> Dict[str, Any]:
         return self.env_schema
 
-    # ------------------------------------------------------------------
-    # Episode mode / experiments
-    # ------------------------------------------------------------------
-    def decide_episode_mode(self, flat_obs, episode_index: int) -> Tuple[str, Optional[ExperimentPlan], str]:
-        env_schema = self._get_env_schema()
-        session_snapshot = self.get_session_snapshot()
-        prompt = textwrap.dedent(
-            f"""
-            You are an RL scientist agent operating in an unknown environment.
-            Decide whether the next episode should be CONTROL or EXPERIMENT.
+    def _load_programmatic_policy(self):
+        policy_path = str(f"runs/{self.session_name}/exports/exported_programmatic_policy.py")
+        spec = importlib.util.spec_from_file_location("exported_programmatic_policy", policy_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"could not load programmatic policy from {policy_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        if not hasattr(module, "act"):
+            raise RuntimeError(f"policy file {policy_path} does not define act(obs)")
+        return module.act
 
-            Core principle:
-            - Do not assume semantic meanings from documentation.
-            - Create hypotheses from patterns in flattened observations, rewards, and action effects.
-            - Design experiments dynamically to test those hypotheses.
-            - Keep plans generic and environment-agnostic.
+    def get_action(self, flat_obs: list[float] = [], step_idx:int = 0, episode_idx: int = 0):
+        """
+        Decide whether this Episode is Experiement or Programmatic policy and return 
+        """
+        if flat_obs == []:
+            raise ValueError("flat_obs is an empty array")
+        
+        try:
+            unresolved_experiment = Experiment.objects.filter(("status", "pending")).first() or None # get experiments with no conclusion
+            logger.debug("Unresolved Experiments Django Query:")
+            logger.debug(unresolved_experiment)
+            if unresolved_experiment is not None:
+                logger.info(f"Running pending EXPERIMENT {unresolved_experiment.id} for episode {episode_idx}")
+                action_literal = self.get_experiment_action(flat_obs=flat_obs, 
+                                                            experiment=unresolved_experiment, step_idx=step_idx)
+                return action_literal
+            else:
+                logger.info(f"Decided on CONTROL mode for episode {episode_idx} with reason")
+                exported_policy = None # load policy every episode to fetch the newest python file version     
+                exported_policy = self._load_programmatic_policy()
+                action_literal = exported_policy(flat_obs, step_idx)
+                return action_literal
 
-            Environment schema JSON:
-            {json.dumps(env_schema, indent=2)}
 
-            Session snapshot JSON:
-            {json.dumps(session_snapshot, indent=2)}
+        except Exception as exc:
+            # Generic fallback only if the LLM response fails.
+            logger.error(f"Error deciding episode mode with LLM: {exc}")
+            logger.error(traceback.format_exc())
+            return None
+        
 
-            - Avoid creating doublicate or similar experiments to those that already exist.
-
-
-            Experiment-plan schema below. Double check that 'custom_action_python_oneline_method' has no syntax errors, no missing parantheses, and only uses 'obs' and 'step_idx' as variable, since it will be eval() during the episode steps. 
-            {{
+        """
+                    {{
               "name": "short free-text label",
               "description": "what this tests",
               "target_question": "Question that this experiment aims to answer",
@@ -146,46 +160,29 @@ class EnvSageAgent:
               "mode": "control" | "experiment",
               "reason": "...",
               "experiment_plan": null or {{...full plan object...}}
-            }}
-            
-            """
-        )
-        logger.info(f"Deciding episode mode for episode={episode_index}")
-        try:
-            data = self._chat_json(prompt=prompt, purpose="decide_episode_mode", episode_index=episode_index)
-            mode = str(data.get("mode", "control")).strip().lower()
-            reason = str(data.get("reason", ""))
-            plan_obj = data.get("experiment_plan")
-            if mode == "experiment" and isinstance(plan_obj, dict):
-                plan = self._plan_from_dict(flat_obs, plan_obj)
-                logger.info(f"Decided on EXPERIMENT mode for episode {episode_index} with plan: {plan}")
-                return "experiment", plan, reason
-            logger.info(f"Decided on CONTROL mode for episode {episode_index} with reason: {reason}")
-            return "control", None, reason
-        except Exception as exc:
-            # Generic fallback only if the LLM response fails.
-            logger.error(f"Error deciding episode mode with LLM: {exc}")
-            logger.error(traceback.format_exc())
-            return "control", None, f"control after LLM failure: {exc}"
+            }}"""
 
-    def get_experiment_action(self, flat_obs: List[float], experiment_plan: ExperimentPlan, step_idx: int) -> CanonicalAction:
+
+    def get_experiment_action(self, experiment: Experiment | None = None, step_idx: int = 0, flat_obs: List[float] = [] ) -> CanonicalAction:
         """
         DB column 'custom_action_python_oneline_method' is a python lambda that'll compute the actions for that experiment.
         """
+        if experiment is None:
+            raise ValueError("experiment is required.")
         try:
-            if not experiment_plan.custom_action_python_oneline_method or experiment_plan.custom_action_python_oneline_method.strip() == "":
+            if not experiment.custom_action_python_oneline_method or experiment.custom_action_python_oneline_method.strip() == "":
                 raise ValueError("No custom action method provided in experiment plan")
             safe_globals = {"__builtins__": None}
             safe_locals = {"abs": abs, "pow": pow, "max": max, "min": min, "round": round, "math": __import__("math")}
-            action = eval(experiment_plan.custom_action_python_oneline_method, safe_globals, safe_locals)(flat_obs,step_idx)
-            logger.debug(f"Evaluating custom action method for step {step_idx}: {experiment_plan.custom_action_python_oneline_method} -> {action}")
+            action = eval(experiment.custom_action_python_oneline_method, safe_globals, safe_locals)(flat_obs,step_idx)
+            logger.debug(f"Evaluating custom action method for step {step_idx}: {experiment.custom_action_python_oneline_method} -> {action}")
             return self._canonicalize_action_literal(action)
         except Exception as exc:
-            logger.warning(f"Error executing custom action method {experiment_plan.custom_action_python_oneline_method}: {exc}")
+            logger.warning(f"Error executing custom action method {experiment.custom_action_python_oneline_method}: {exc}")
             logger.error(traceback.format_exc())
             try:
-                Experiment.objects.filter(session=self.session, name=experiment_plan.name).update(status='failed')
-                logger.info(f"Marked Experiment {experiment_plan.name} as failed in DB")
+                Experiment.objects.filter(session=self.session, name=experiment.name).update(status='failed')
+                logger.info(f"Marked Experiment {experiment.name} as failed in DB")
             except Exception:
                 logger.exception("Failed to mark experiment as failed via ORM")
             return self._canonicalize_action_literal(0)
@@ -251,12 +248,12 @@ class EnvSageAgent:
     def post_episode(
         self,
         episode_index: int,
-        mode: str,
         trajectory: List[Dict[str, Any]],
         return_value: float,
         terminated: bool,
         truncated: bool,
-        experiment_plan: Optional[ExperimentPlan] = None,
+        mode: str = "None",
+        experiment_plan: Optional[ExperimentPlan] | None = None,
     ) -> Dict[str, Any]:
         logger.info(f"Post-episode processing start: episode_index={episode_index} mode={mode}")
         summary = self._summarize_trajectory(trajectory)
@@ -822,15 +819,6 @@ class EnvSageAgent:
         code = match.group(1) if match else text
         ast.parse(code)
         return code + ("\n" if not code.endswith("\n") else "")
-
-    def _plan_from_dict(self, flat_obs, plan_obj: Dict[str, Any]) -> ExperimentPlan:
-        return ExperimentPlan(
-            name=str(plan_obj.get("name", "dynamic_experiment"))[:160],
-            description=str(plan_obj.get("description", "")),
-            target_question=str(plan_obj.get("target_question", "")),
-            custom_action_python_oneline_method=plan_obj.get("custom_action_python_oneline_method", "lambda obs, step_idx: 0"),
-            reason=str(plan_obj.get("reason", "")),
-        )
 
     def _plan_to_dict(self, plan: Optional[ExperimentPlan]) -> Optional[Dict[str, Any]]:
         if plan is None:

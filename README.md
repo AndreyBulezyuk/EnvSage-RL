@@ -15,15 +15,6 @@ EnvSage-RL is a new take on reinforcement learning: an LLM sits between episodes
 
 Rather than relying only on brute-force trial and error, EnvSage-RL turns training into a reasoning loop. The model analyzes trajectories, searches for dynamics and constants, tests its own ideas, and feeds those insights back into the learning process. The goal is not just to learn a policy, but to understand the environment well enough to train better.
 
-### Core idea
-
-- Observe episodes
-- Infer possible rules of the environment
-- Design experiments to test them
-- Update training using the new knowledge
-
-EnvSage-RL explores a cutting-edge research direction at the intersection of reinforcement learning, LLM reasoning, and automated experiment design.
-
 ---
 
 > [!WARNING]  
@@ -32,7 +23,7 @@ EnvSage-RL explores a cutting-edge research direction at the intersection of rei
 
 ---
 
-# Quick start
+## Quick start
 
 ```bash
 git clone https://github.com/AndreyBulezyuk/EnvSage-RL
@@ -43,7 +34,7 @@ uv run python envsage/run_env_llm.py --env-id LunarLander-v3 --episodes 20 --exp
 ```
 
 
-# Motivation
+## Motivation
 
 Traditional RL agents learn through trial-and-error and often require millions of steps.
 Traditional technique only extract a very limited amount of knowledge and insights about the Agent, Dynamics, Constants, Rules and Boundaries of the Environment.
@@ -62,7 +53,7 @@ The same way a human wouldn't blindly press random buttons a millions times when
 
 ---
 
-# Key Idea
+## Key Idea
 
 The LLM acts as a **training strategist** rather than a passive analyzer.
 
@@ -85,17 +76,6 @@ The LLM then adjusts training strategies accordingly.
 
 ---
 
-# Architecture
-
-```
-RL Agent → Episode Logger → Feature Analyzer → LLM Strategist
-     ↑                                             ↓
- Trainer ← Strategy Adapter ← Experiment Planner
-```
-
-
----
-
 # Training Workflow
 
 0. For each Episode
@@ -106,23 +86,6 @@ RL Agent → Episode Logger → Feature Analyzer → LLM Strategist
 2.3. Run 1 or more Experiments for each hypothesis to in/validate it
 2.4. Update the Knowledge about the Environments Dynamics and Constants
 3. Tune Training Algorithm Parameters
-
----
-
-# Feature Extraction
-
-Instead of passing raw trajectory data to the LLM, the system computes dynamic features/variables (Wind, Acceleration, Number of People in Frame, etc. ) or constants (e.g: Gravity, Duration of XYZ).
-
-Examples:
-
-| Feature | Description |
-|---|---|
-mean velocity | average movement |
-reward acceleration | change in reward slope |
-state drift | natural system movement |
-action sensitivity | state response to actions |
-
-These features allow the LLM to reason about system dynamics.
 
 ---
 
@@ -153,20 +116,4 @@ obs[5] = gravity with -0.2 at each timestep
 
 # TODO
 
-1. Prevent LLM cheating via environment recognition.
-
-Ideas:
-
-- randomize environment names
-- hide observation dimensions
-- randomize reward scaling
-- inject noise into observation order
-
----
-
-# Future Work
-
-- multi-agent reflection
-- causal discovery of environment rules
-- automated curriculum learning
-- integration with world models
+1. Prevent LLM cheating via environment recognition and using well known rules/solutions.
